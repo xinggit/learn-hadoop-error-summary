@@ -2,6 +2,7 @@
 All the errors will be accessed here
 
 Study hadoop a year, encountered a lot of mistakes, are summed up, I will move them all to git,A collection of errors is a good way to learn when learning a technique
+
 汇集学习hadoop以来所有遇到的错误
 
 Hope to help you,thanks
@@ -68,9 +69,47 @@ java.lang.RuntimeException: java.io.EOFException
         
         Error: serialization and anti-sequence number error, because different types in the serial number, anti-sequence when the bytes      are different, when the number of anti-sequence at the same time, and the type does not match, it will throw an exception
      So the serial number must call the corresponding write () method
+     
+--------------------------------------------------------------------------------------------------------------------  
+java.lang.Exception: java.lang.ClassCastException: org.apache.hadoop.mapreduce.lib.input.TaggedInputSplit cannot be cast to org.apache.hadoop.mapreduce.lib.input.FileSplit
+        at org.apache.hadoop.mapred.LocalJobRunner$Job.runTasks(LocalJobRunner.java:462)
+        at org.apache.hadoop.mapred.LocalJobRunner$Job.run(LocalJobRunner.java:522)
+        Caused by: java.lang.ClassCastException: org.apache.hadoop.mapreduce.lib.input.TaggedInputSplit cannot be cast to org.apache.hadoop.mapreduce.lib.input.FileSplit
+        at com.zx.example7.IDFMap.map(IDFMap.java:16)
+        at com.zx.example7.IDFMap.map(IDFMap.java:1)
+        at org.apache.hadoop.mapreduce.Mapper.run(Mapper.java:146)
+        at org.apache.hadoop.mapreduce.lib.input.DelegatingMapper.run(DelegatingMapper.java:55)
+        at org.apache.hadoop.mapred.MapTask.runNewMapper(MapTask.java:787)
+        at org.apache.hadoop.mapred.MapTask.run(MapTask.java:341)
+        at org.apache.hadoop.mapred.LocalJobRunner$Job$MapTaskRunnable.run(LocalJobRunner.java:243)
+        at java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:511)
+        at java.util.concurrent.FutureTask.run(FutureTask.java:266)
+        at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1142)
+        at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:617)
+        at Java.lang.Thread.run(Thread.java:745)
+        
+       错误分析：因为此类采用的输入格式是MultipleInputs,MultipleInputs.addInputPath(...);
+        (FileSplit)(context.getInputSplit());
+        在mapper中再使用上面的那种方式,就会报出一个类型转换错误,
+        解决方法:直接通过反射来获得TaggedInputSplit中的inputSplit.
+        
+        
+        InputSplit split = context.getInputSplit();
+		Class<? extends InputSplit> splitClass = split.getClass();
 
+		FileSplit fileSplit = null;
+		if (splitClass.equals(FileSplit.class)) {
+			fileSplit = (FileSplit) split;
+		} else if (splitClass.getName().equals("org.apache.hadoop.mapreduce.lib.input.TaggedInputSplit")) {
 
-
+			try {
+				Method getInputSplitMethod = splitClass.getDeclaredMethod("getInputSplit");
+				getInputSplitMethod.setAccessible(true);
+				fileSplit = (FileSplit) getInputSplitMethod.invoke(split);
+			} catch (Exception e) {
+				throw new IOException(e);
+			}
+--------------------------------------------------------------------------------------------------------------------  
 
 
 
